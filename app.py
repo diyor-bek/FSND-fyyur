@@ -48,6 +48,7 @@ class Venue(db.Model):
         image_link = db.Column(db.String(500))
         facebook_link = db.Column(db.String(120))
         website = db.Column(db.String(120))
+        genres = db.Column(db.String(500))
         seeking_talent = db.Column(db.Boolean, default=False)
         seeking_description = db.Column(db.String(500))
         artist = db.relationship('Artist', secondary=shows,
@@ -176,8 +177,32 @@ def show_venue(venue_id):
     # shows the venue page with the given venue_id
     # TODO: replace with real venue data from the venues table, using venue_id
     
-    data = Venue.query.get(venue_id)
-    
+    ven = Venue.query.get(venue_id)
+    shows_ = db.session.execute('SELECT * FROM shows;')
+    past_shows = []
+    upcoming_shows = []
+    ven_shows = [ven_show for ven_show in shows_ if ven_show.venue_id == ven.id]
+    for ven_show in ven_shows:
+        if dateutil.parser.parse(str(ven_show.start_time)) > datetime.now():
+            upcoming_shows.append({
+                "artist": ven_show.artist_id,
+                "artist": Artist.query.get(ven_show.artist_id).name,
+                "artist_image_link": Artist.query.get(ven_show.artist_id).image_link,
+                "start_time": str(ven_show.start_time)
+            })
+        else:
+            past_shows.append({
+                "artist_id": ven_show.artist_id,
+                "artist_name": Artist.query.get(ven_show.artist_id).name,
+                "artist_image_link": Artist.query.get(ven_show.artist_id).image_link,
+                "start_time": str(ven_show.start_time)
+            })
+    data = ven.__dict__
+    data['past_shows'] = past_shows
+    data['upcoming_shows'] = upcoming_shows
+    data['past_shows_count'] = len(past_shows)
+    data['upcoming_shows_count'] = len(upcoming_shows)
+
     return render_template('pages/show_venue.html', venue=data)
 
 #    Create Venue
@@ -192,7 +217,21 @@ def create_venue_form():
 def create_venue_submission():
     # TODO: insert form data as a new Venue record in the db, instead
     # TODO: modify data to be the data object returned from db insertion
-
+    # try:
+    req = request.form
+    new_venue = Venue(
+        name = req.get('name'),
+        city = req.get('city'),
+        state = req.get('state'),
+        address = req.get('address'),
+        phone = req.get('phone'),
+        image_link = req.get('image_link'),
+        facebook_link = req.get('facebook_link')
+    )
+    print('list', req.getlist('genres'))
+    genres = f'[{", ".join(req.getlist("genres"))}]'
+    print('genres', type(genres), genres)
+    # print(new_venue)
     # on successful db insert, flash success
     flash('Venue ' + request.form['name'] + ' was successfully listed!')
     # TODO: on unsuccessful db insert, flash an error instead.
@@ -215,7 +254,7 @@ def delete_venue(venue_id):
 def artists():
     # TODO: replace with real data returned from querying the database
     
-    data = Artist.query.with_entities(Artist.id, Artist.name)
+    data = Artist.query.order_by('id').all()
     
     return render_template('pages/artists.html', artists=data)
 
@@ -247,8 +286,34 @@ def show_artist(artist_id):
     # shows the venue page with the given venue_id
     # TODO: replace with real venue data from the venues table, using venue_id
     import ast
-    data = Artist.query.get(artist_id)
-    data.genres = ast.literal_eval(data.genres)
+    art = Artist.query.get(artist_id)
+    art.genres = ast.literal_eval(art.genres)
+    shows_ = db.session.execute('SELECT * FROM shows;')
+    # data = []
+    
+    past_shows = []
+    upcoming_shows = []
+    art_shows = [art_show for art_show in shows_ if art_show.artist_id == art.id]
+    for art_show in art_shows:
+        if dateutil.parser.parse(str(art_show.start_time)) > datetime.now():
+            upcoming_shows.append({
+                "venue_id": art_show.venue_id,
+                "venue_name": Venue.query.get(art_show.venue_id).name,
+                "venue_image_link": Venue.query.get(art_show.venue_id).image_link,
+                "start_time": str(art_show.start_time)
+            })
+        else:
+            past_shows.append({
+                "venue_id": art_show.venue_id,
+                "venue_name": Venue.query.get(art_show.venue_id).name,
+                "venue_image_link": Venue.query.get(art_show.venue_id).image_link,
+                "start_time": str(art_show.start_time)
+            })
+    data = art.__dict__
+    data['past_shows'] = past_shows
+    data['upcoming_shows'] = upcoming_shows
+    data['past_shows_count'] = len(past_shows)
+    data['upcoming_shows_count'] = len(upcoming_shows)
     # genres = genres.split('\"')
     # i = 0
     # while len(genres) <= i:
@@ -342,13 +407,7 @@ def shows():
     # TODO: replace with real venues data.
     #             num_shows should be aggregated based on number of upcoming shows per venue.
     
-    from config import SQLALCHEMY_DATABASE_URI as db_uri
-    from sqlalchemy import create_engine
-    
-    engine = create_engine(db_uri)
-    con = engine.connect()
-    shows_ = con.execute('SELECT * FROM shows;')
-    con.close()
+    shows_ = db.session.execute('SELECT * FROM shows;')
 
     # shows_ = db.session.query(shows).all()
     data = []

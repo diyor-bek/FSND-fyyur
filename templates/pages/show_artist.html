@@ -38,6 +38,10 @@
 			<i class="fas fa-moon"></i> Not currently seeking performance venues
 		</p>
 		{% endif %}
+		<div style="padding: 20px 0;">
+			<a class="btn btn-warning" href="{{ artist.id }}/edit">EDIT</a>
+			<button class="btn btn-danger" onclick="if (confirm('Are you sure?')) {fetch('/artist/{{ artist.id }}', {method: 'DELETE'})};">DELETE</button>
+		</div>
 	</div>
 	<div class="col-sm-6">
 		<img src="{{ artist.image_link }}" alt="Venue Image" />

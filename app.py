@@ -24,9 +24,7 @@ app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)
-
-# TODO: connect to a local postgresql database
+migrate = Migrate(app, db
 
 #----------------------------------------------------------------------------#
 # Models.
@@ -59,8 +57,6 @@ class Venue(db.Model):
         def __repr__(self):
             return f'<Venue {self.id} {self.name} {self.city} {self.state} {self.address} {self.phone} {self.artist}>'
 
-        # TODO: implement any missing fields, as a database migration using Flask-Migrate
-
 class Artist(db.Model):
         __tablename__ = 'artists'
         id = db.Column(db.Integer, primary_key=True)
@@ -77,10 +73,6 @@ class Artist(db.Model):
 
         def __repr__(self):
             return f'<Artist {self.id} {self.name} {self.city} {self.state} {self.phone} {self.genres}>'
-
-        # TODO: implement any missing fields, as a database migration using Flask-Migrate
-
-# TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
 
 #----------------------------------------------------------------------------#
 # Filters.
@@ -104,54 +96,37 @@ app.jinja_env.filters['datetime'] = format_datetime
 def index():
     return render_template('pages/home.html')
 
-
 #    Venues
 #    ----------------------------------------------------------------
 
 @app.route('/venues')
 def venues():
-    vens = Venue.query.order_by('city').all()
+    shows_ = db.session.execute('SELECT * FROM shows;')
+    cities = []
+    for ven in Venue.query.all():
+        if ven.city not in cities:
+            cities.append(ven.city)
     areas = []
-    area = {}
-    ven_list = []
-    
-    ven_city = ''
-    ven_state = ''
-    n = 0
-    for i in range(len(vens)):
-        ven = vens[i]
-        if i == 0:
-            ven_city = ven.city
-            ven_state = ven.state
-        if ven_city != ven.city:
-            area['city'] = ven_city
-            area['state'] = ven_state
-            area['venues'] = ven_list
-            areas.append(area)
-            area = {}
-            ven_list = []
+    for city in cities:
+        vens_ = []
+        vens = Venue.query.filter_by(city=city).all()
+        for ven in vens:
             n = 0
-        if n == 0:
-            ven_city = ven.city
-            ven_state = ven.state
-        ven_dict = {
-            'id': ven.id,
-            'name': ven.name,
-            'num_upcoming_shows': n
-        }
-        ven_list.append(ven_dict)
-        n += 1
-    area['city'] = ven_city
-    area['state'] = ven_state
-    area['venues'] = ven_list
-    areas.append(area)
-    area = {}
-    ven_list = []
-        
-    
-    # TODO: replace with real venues data.
-    #             num_shows should be aggregated based on number of upcoming shows per venue.
-    
+            for show in shows_:
+                if show.venue_id == ven.id:
+                    if dateutil.parser.parse(str(show.start_time)) > datetime.now():
+                        n += 1
+            vens_.append({
+                'id': ven.id,
+                'name': ven.name,
+                'num_upcoming_shows': n
+            })
+        areas.append({
+            'city': city,
+            'state': vens[0].state,
+            'venues': vens_
+        })
+
     return render_template('pages/venues.html', areas=areas)
 
 @app.route('/venues/search', methods=['POST'])
@@ -160,7 +135,6 @@ def search_venues():
     datas = Venue.query.all()
     data = []
     shows_ = db.session.execute('SELECT * FROM shows;')
-
     for ven in datas:
         if search_term in str(ven.name).lower():
             past_shows = []
@@ -190,9 +164,6 @@ def search_venues():
                 'past_shows_count': len(past_shows),
                 'upcoming_shows_count': len(upcoming_shows)
             })
-            
-
-
     response={
         "count": len(data),
         "data": data
@@ -201,9 +172,6 @@ def search_venues():
 
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
-    # shows the venue page with the given venue_id
-    # TODO: replace with real venue data from the venues table, using venue_id
-    
     ven = Venue.query.get(venue_id)
     shows_ = db.session.execute('SELECT * FROM shows;')
     past_shows = []
@@ -211,9 +179,9 @@ def show_venue(venue_id):
     ven_shows = [ven_show for ven_show in shows_ if ven_show.venue_id == ven.id]
     for ven_show in ven_shows:
         if dateutil.parser.parse(str(ven_show.start_time)) > datetime.now():
-            upcoming_shows.append({
-                "artist": ven_show.artist_id,
-                "artist": Artist.query.get(ven_show.artist_id).name,
+            upcoming_shows.append({b
+                "artist_id": ven_show.artist_id,
+                "artist_name": Artist.query.get(ven_show.artist_id).name,
                 "artist_image_link": Artist.query.get(ven_show.artist_id).image_link,
                 "start_time": str(ven_show.start_time)
             })
@@ -260,7 +228,6 @@ def create_venue_submission():
         )
         db.session.add(new_venue)
         db.session.commit()
-        # on successful db insert, flash success
         flash('Venue ' + request.form['name'] + ' was successfully listed!')
     except:
         print(sys.exc_info())
@@ -290,19 +257,14 @@ def delete_venue(venue_id):
 
 #    Artists
 #    ----------------------------------------------------------------
+
 @app.route('/artists')
 def artists():
-    # TODO: replace with real data returned from querying the database
-    
     data = Artist.query.order_by('id').all()
-    
     return render_template('pages/artists.html', artists=data)
 
 @app.route('/artists/search', methods=['POST'])
 def search_artists():
-    # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
-    # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
-    # search for "band" should return "The Wild Sax Band".
     search_term = str(request.form.get('search_term')).lower()
     datas = Artist.query.all()
     data = []
@@ -346,13 +308,9 @@ def search_artists():
 
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
-    # shows the venue page with the given venue_id
-    # TODO: replace with real venue data from the venues table, using venue_id
     art = Artist.query.get(artist_id)
     art.genres = ast.literal_eval(art.genres)
     shows_ = db.session.execute('SELECT * FROM shows;')
-    # data = []
-    
     past_shows = []
     upcoming_shows = []
     art_shows = [art_show for art_show in shows_ if art_show.artist_id == art.id]
